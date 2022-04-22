@@ -16,7 +16,9 @@
         messageD: document.querySelector('#scroll-section-0 .main-message.d'),
       },
       values: {
-        messageA_opacity: [0, 1],
+        messageA_opacity_in: [0, 1, { start: 0.1, end: 0.2 }],
+        messageA_opacity_out: [1, 0, { start: 0.25, end: 0.3 }],
+        messageB_opacity_in: [0, 1, { start: 0.3, end: 0.4 }],
       },
     },
     {
@@ -71,18 +73,46 @@
 
   // 스타일 수치 계산
   // 미개변수: 계산할 값 범위, 현재씬에서 얼마나 스크롤했는지
-  function calcValues(values, currentYOffset) {}
+  function calcValues(values, currentYOffset) {
+    let rv;
+    // 현재 씬에서 스크롤된 범위
+    const scrollHeight = sceneInfo[currentScene].scrollHeight;
+    const scrollRatio = currentYOffset / scrollHeight;
+
+    if (values.length === 3) {
+      // start ~ end 사이에 애니메이션 실행
+      const partScrollStart = values[2].start * scrollHeight;
+      const partScrollEnd = values[2].end * scrollHeight;
+      const partScrollHeight = partScrollEnd - partScrollStart;
+
+      if (scrollY >= partScrollStart && currentYOffset <= partScrollEnd) {
+        // 전체스크롤 - 부분시작지점 /  부분스크롤크기
+        rv = ((scrollY - partScrollStart) / scrollHeight) * (values[1] - values[0]) + values[0];
+      } else if (scrollY < partScrollStart) {
+        rv = values[0];
+      } else if (scrollY > partScrollEnd) {
+        rv = values[1];
+      }
+    } else {
+      rv = scrollRatio * (values[1] - values[0]) + values[0];
+    }
+
+    return rv;
+  }
 
   function playAnimation() {
     const objs = sceneInfo[currentScene].objs;
     const values = sceneInfo[currentScene].values;
     const currentYOffset = scrollY - prevScrollHeight; // 현재 씬에서 스크롤한 범위
-    console.log(currentScene, currentYOffset);
+    // console.log(currentScene);
 
     switch (currentScene) {
       case 0:
         // console.log('0 play');
-        let messageA_opacity_in = calcValues(values.messageA_opacity, currentYOffset);
+        const messageA_opacity_in = calcValues(values.messageA_opacity_in, currentYOffset);
+        const messageA_opacity_out = calcValues(values.messageA_opacity_out, currentYOffset);
+        objs.messageA.style.opacity = messageA_opacity_in;
+        console.log(messageA_opacity_in);
         break;
       case 1:
         // console.log('1 play');
@@ -99,21 +129,26 @@
   // 특정 스크롤 포지션이 되면 해당 섹션의 내용을 보여줌
   // 바디의 id를 변경하여 해당 섹션의 스티키 문구를 block으로 보여줌
   function scrollLoop() {
+    enterNewScene = false;
     prevScrollHeight = 0;
     for (let i = 0; i < currentScene; i++) {
       prevScrollHeight += sceneInfo[i].scrollHeight;
     }
 
     if (scrollY > prevScrollHeight + sceneInfo[currentScene].scrollHeight) {
+      enterNewScene = true;
       currentScene++;
       document.body.setAttribute('id', `show-scene-${currentScene}`);
     }
 
     // currentScene !== 0 -> 모바일에서 상단 바운싱일 떄 -스크롤값 방지
     if (currentScene !== 0 && scrollY < prevScrollHeight) {
+      enterNewScene = true;
       currentScene--;
       document.body.setAttribute('id', `show-scene-${currentScene}`);
     }
+
+    if (enterNewScene) return;
 
     playAnimation();
   }
